@@ -21,12 +21,12 @@ def parse_fastq(f):
       qual = qual.rstrip()
       yield desc, seq, qual
 
-def main():
+def main(argv=None):
    p = argparse.ArgumentParser()
    p.add_argument("-r", "--read", help="remove_fwd_primer_from_R2 OR remove_rev_primer_from_R1")
    p.add_argument("-i", "--in_fastq_FP", help="PATH to input fastq to be trimmed")
    p.add_argument("-o", "--out_fastq_FP", help="PATH to output fastq after trimming")
-   args = p.parse_args()
+   args = p.parse_args(argv)
 
    which_primer = args.read
    in_fastq_FP = args.in_fastq_FP
@@ -74,5 +74,3 @@ def main():
          log.write("%s\t%s\n" % (read.desc, primer_loc))
    in_fastq.close()
 
-if __name__ == "__main__":
-   main()
