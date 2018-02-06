@@ -5,6 +5,16 @@ import os
 class FastqRead(object):
    def __init__(self, read):
       self.desc, self.seq, self.qual = read
+
+   def trim(self, idx):
+      if idx is None:
+         return self
+      else:
+         return FastqRead((self.desc, self.seq[:idx], self.qual[idx]))
+
+   def format_fastq(self):
+      return "@{0}\n{1}\n+\n{2}\n".format(self.desc, self.seq, self.qual)
+
    def __repr__(self):
       return self.desc + "\n" + self.seq + "\n+\n" + self.qual + "\n"
 
@@ -20,6 +30,23 @@ def parse_fastq(f):
       seq = seq.rstrip()
       qual = qual.rstrip()
       yield desc, seq, qual
+
+class ExactMatcher(object):
+    def __init__(self, queryset):
+        self.queryset = queryset
+
+    def find_match(self, seq):
+        return find_queryset(seq, self.queryset)
+
+def find_queryset(s, queryset):
+    idx = -1
+    for query in queryset:
+        idx = s.find(query)
+        if idx != -1:
+            break
+    if idx == -1:
+        idx = None
+    return idx
 
 def main(argv=None):
    p = argparse.ArgumentParser()
@@ -45,17 +72,16 @@ def main(argv=None):
    elif which_primer == "remove_rev_primer_from_R1":
          primer = "GCATCGATGAAGAACGCAGC" ### rev complement of ITS2R primer    
 
+   m = ExactMatcher([primer])
    reads = (FastqRead(x) for x in parse_fastq(in_fastq))
 
    for read in reads:
-       if primer in read.seq:
-          primer_loc = read.seq.index(primer) ### returns first position of primer sequences match
-          trimmed_seq = read.seq[:primer_loc]
-          trimmed_qual = read.qual[:primer_loc]
-       else:
-          primer_loc = "NA"
-          trimmed_seq = read.seq
-          trimmed_qual = read.qual
-       out_fastq.write("@%s\n%s\n+\n%s\n" % (read.desc, trimmed_seq, trimmed_qual))
-       log.write("%s\t%s\n" % (read.desc, primer_loc))
+       idx = m.find_match(read.seq)
+       trimmed_read = read.trim(idx)
+       out_fastq.write(trimmed_read.format_fastq())
 
+       if idx is None:
+           primer_loc = "NA"
+       else:
+           primer_loc = str(idx)
+       log.write("%s\t%s\n" % (trimmed_read.desc, primer_loc))
