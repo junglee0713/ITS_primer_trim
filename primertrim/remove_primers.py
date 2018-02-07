@@ -34,7 +34,7 @@ def _grouper(iterable, n):
 
 class Matcher(object):
     def __init__(self, queryset):
-        self.queryset = queryset
+        self.queryset = queryset.copy()
 
     def find_match(self, seq):
         idx = -1

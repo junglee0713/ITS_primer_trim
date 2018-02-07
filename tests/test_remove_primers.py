@@ -4,7 +4,7 @@ import tempfile
 import unittest
 
 from primertrim.remove_primers import (
-    main,
+    main, CompleteMatcher,
 )
 
 def data_fp(filename):
@@ -17,7 +17,14 @@ def read_from(filepath):
         res = f.readlines()
     return res
 
-class ScriptTest(unittest.TestCase):
+class MatcherTests(unittest.TestCase):
+    def test_1_mismatch(self):
+        m = CompleteMatcher(["TTTTTT"], 1)
+        self.assertEqual(m.find_match("AATTTGTT"), 2) # Actually one mismatch
+        self.assertEqual(m.find_match("AGATTTTTT"), 3) # Exact match should be OK too
+        self.assertEqual(m.find_match("AATTGGTT"), None) # Two mismatches is too much
+
+class ScriptTests(unittest.TestCase):
     def setUp(self):
         self.test_dir = tempfile.mkdtemp()
         self.output_fp = os.path.join(self.test_dir, "out.fastq")
