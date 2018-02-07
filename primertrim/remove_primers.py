@@ -10,7 +10,7 @@ class FastqRead(object):
       if idx is None:
          return self
       else:
-         return FastqRead((self.desc, self.seq[:idx], self.qual[idx]))
+         return FastqRead((self.desc, self.seq[:idx], self.qual[:idx]))
 
    def format_fastq(self):
       return "@{0}\n{1}\n+\n{2}\n".format(self.desc, self.seq, self.qual)
@@ -71,6 +71,8 @@ def main(argv=None):
          primer = "TTACTTCCTCTAAATGACCAAG" ### rev complement of ITS1F primer	
    elif which_primer == "remove_rev_primer_from_R1":
          primer = "GCATCGATGAAGAACGCAGC" ### rev complement of ITS2R primer    
+   else:
+         p.error("Invalid argument to --read")
 
    m = ExactMatcher([primer])
    reads = (FastqRead(x) for x in parse_fastq(in_fastq))
