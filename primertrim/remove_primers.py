@@ -46,6 +46,7 @@ class Matcher(object):
             idx = None
         return idx
 
+
 class CompleteMatcher(Matcher):
     def __init__(self, queryset, max_mismatch):
         super().__init__(queryset)
@@ -76,6 +77,40 @@ class CompleteMatcher(Matcher):
                     # particular set of positions
                 for query_with_mismatches in deambiguate(qchars):
                     yield query_with_mismatches
+
+class PartialMatcher(Matcher):
+    def __init__(self, queryset, min_length):
+        super().__init__(queryset)
+        self.min_length = min_length
+
+        self.partial_queries_left = []
+        self.partial_queries_right = []
+        for query in self.queryset:
+            for s in partial_seqs_left(query, self.min_length):
+                self.partial_queries_left.append(s)
+            for s in partial_seqs_right(query, self.min_length):
+                self.partial_queries_right.append(s)
+
+    def find_match(self, seq):
+        for left_partial_query in self.partial_queries_left:
+            if seq.startswith(left_partial_query):
+               return 0
+        for right_partial_query in self.partial_queries_right:
+           if seq.endswith(right_partial_query):
+               return len(seq) - len(right_partial_query)
+        return None
+
+def partial_seqs_left(seq, min_length):
+    if min_length < len(seq):
+        max_start_idx = len(seq) - min_length + 1
+        for start_idx in range(1, max_start_idx):
+            yield seq[start_idx:]
+
+def partial_seqs_right(seq, min_length):
+    if min_length < len(seq):
+        max_remove = len(seq) - min_length
+        for num_to_remove in range(1, max_remove + 1):
+            yield seq[:-num_to_remove]
 
 def replace_with_n(seq, idxs):
     chars = list(seq)

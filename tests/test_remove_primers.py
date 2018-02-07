@@ -4,7 +4,8 @@ import tempfile
 import unittest
 
 from primertrim.remove_primers import (
-    main, CompleteMatcher,
+    main, CompleteMatcher, PartialMatcher,
+    partial_seqs_left, partial_seqs_right,
 )
 
 def data_fp(filename):
@@ -23,6 +24,27 @@ class MatcherTests(unittest.TestCase):
         self.assertEqual(m.find_match("AATTTGTT"), 2) # Actually one mismatch
         self.assertEqual(m.find_match("AGATTTTTT"), 3) # Exact match should be OK too
         self.assertEqual(m.find_match("AATTGGTT"), None) # Two mismatches is too much
+
+    def test_partial_match(self):
+        m = PartialMatcher(["AAAAAA"], 4)
+        self.assertEqual(m.find_match("AAAAAGTCGT"), 0) # Length is 5, matches
+        self.assertEqual(m.find_match("AAAAGTCGT"), 0) # Length is 4, still matches
+        self.assertEqual(m.find_match("GTCGAAAAA"), 4) # Length is 5, matches
+
+class FunctionTests(unittest.TestCase):
+    def test_partial_seqs_left(self):
+        self.assertEqual(
+            list(partial_seqs_left("ABCDEFG", 3)),
+            ["BCDEFG", "CDEFG", "DEFG", "EFG"])
+
+    def test_partial_seqs_right(self):
+        self.assertEqual(
+            list(partial_seqs_right("ABCDEFG", 3)),
+            ["ABCDEF", "ABCDE", "ABCD", "ABC"])
+
+    def test_partial_no_results(self):
+        self.assertEqual(list(partial_seqs_left("ABCDE", 5)), [])
+        self.assertEqual(list(partial_seqs_right("ABCDE", 5)), [])
 
 class ScriptTests(unittest.TestCase):
     def setUp(self):
