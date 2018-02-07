@@ -29,9 +29,9 @@ class ScriptTest(unittest.TestCase):
     def test_main_script(self):
         input_fp = data_fp("Sub10003.V1.sputum.redo_R1.fastq")
         args = [
-            "--read", "remove_rev_primer_from_R1",
-            "--in_fastq", input_fp,
-            "--out_fastq", self.output_fp,
+            "GCATCGATGAAGAACGCAGC",
+            "-i", input_fp,
+            "-o", self.output_fp,
             "--log", self.log_fp,
         ]
         main(args)

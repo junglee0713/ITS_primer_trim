@@ -3,33 +3,33 @@ import argparse
 import os
 
 class FastqRead(object):
-   def __init__(self, read):
-      self.desc, self.seq, self.qual = read
+   def __init__(self, desc, seq, qual):
+      self.desc = desc
+      self.seq = seq
+      self.qual = qual
 
    def trim(self, idx):
       if idx is None:
          return self
       else:
-         return FastqRead((self.desc, self.seq[:idx], self.qual[:idx]))
+         return self.__class__(self.desc, self.seq[:idx], self.qual[:idx])
 
    def format_fastq(self):
       return "@{0}\n{1}\n+\n{2}\n".format(self.desc, self.seq, self.qual)
 
-   def __repr__(self):
-      return self.desc + "\n" + self.seq + "\n+\n" + self.qual + "\n"
+   @classmethod
+   def parse(cls, f):
+      for desc, seq, _, qual in _grouper(f, 4):
+         desc = desc.rstrip()[1:]
+         seq = seq.rstrip()
+         qual = qual.rstrip()
+         yield cls(desc, seq, qual)
 
 def _grouper(iterable, n):
    "Collect data into fixed-length chunks or blocks"
    # grouper('ABCDEFG', 3) --> ABC DEF
    args = [iter(iterable)] * n
    return zip(*args)
-
-def parse_fastq(f):
-   for desc, seq, _, qual in _grouper(f, 4):
-      desc = desc.rstrip()[1:]
-      seq = seq.rstrip()
-      qual = qual.rstrip()
-      yield desc, seq, qual
 
 class ExactMatcher(object):
     def __init__(self, queryset):
@@ -50,40 +50,37 @@ def find_queryset(s, queryset):
 
 def main(argv=None):
    p = argparse.ArgumentParser()
-   p.add_argument("-r", "--read", help="remove_fwd_primer_from_R2 OR remove_rev_primer_from_R1")
    p.add_argument(
-      "-i", "--in_fastq", type=argparse.FileType('r'),
-      help="PATH to input fastq to be trimmed")
+      "primer",
+      help="Primer sequence to be trimmed")
    p.add_argument(
-      "-o", "--out_fastq", type=argparse.FileType('w'),
-      help="PATH to output fastq after trimming")
+      "-i", "--input_fastq", type=argparse.FileType('r'),
+      help="Input FASTQ file to be trimmed (default: standard input)")
+   p.add_argument(
+      "-o", "--output_fastq", type=argparse.FileType('w'),
+      help="Output fastq after trimming (default: standard output)")
    p.add_argument(
       "--log", type=argparse.FileType('w'),
-      help="Log file to record location of primers detected")
+      help="Log file to record location of primers detected (default: not written)")
    args = p.parse_args(argv)
 
-   which_primer = args.read
-   in_fastq = args.in_fastq
-   out_fastq = args.out_fastq
-   log = args.log
+   if args.input_fastq is None:
+      args.input_fastq = sys.stdin
 
-   if which_primer == "remove_fwd_primer_from_R2":
-         primer = "TTACTTCCTCTAAATGACCAAG" ### rev complement of ITS1F primer	
-   elif which_primer == "remove_rev_primer_from_R1":
-         primer = "GCATCGATGAAGAACGCAGC" ### rev complement of ITS2R primer    
-   else:
-         p.error("Invalid argument to --read")
+   if args.output_fastq is None:
+      args.output_fastq = sys.stdout
 
-   m = ExactMatcher([primer])
-   reads = (FastqRead(x) for x in parse_fastq(in_fastq))
+   m = ExactMatcher([args.primer])
+   reads = FastqRead.parse(args.input_fastq)
 
    for read in reads:
        idx = m.find_match(read.seq)
        trimmed_read = read.trim(idx)
-       out_fastq.write(trimmed_read.format_fastq())
+       args.output_fastq.write(trimmed_read.format_fastq())
 
-       if idx is None:
-           primer_loc = "NA"
-       else:
-           primer_loc = str(idx)
-       log.write("%s\t%s\n" % (trimmed_read.desc, primer_loc))
+       if args.log:
+          if idx is None:
+             primer_loc = "NA"
+          else:
+             primer_loc = str(idx)
+          args.log.write("{0}\t{1}\n".format(trimmed_read.desc, primer_loc))
