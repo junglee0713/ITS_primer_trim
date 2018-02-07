@@ -1,3 +1,4 @@
+import itertools
 import sys
 import argparse
 import os
@@ -31,22 +32,102 @@ def _grouper(iterable, n):
    args = [iter(iterable)] * n
    return zip(*args)
 
-class ExactMatcher(object):
+class Matcher(object):
     def __init__(self, queryset):
         self.queryset = queryset
 
     def find_match(self, seq):
-        return find_queryset(seq, self.queryset)
+        idx = -1
+        for query in self.queryset:
+            idx = seq.find(query)
+            if idx != -1:
+                break
+        if idx == -1:
+            idx = None
+        return idx
 
-def find_queryset(s, queryset):
-    idx = -1
-    for query in queryset:
-        idx = s.find(query)
-        if idx != -1:
-            break
-    if idx == -1:
-        idx = None
-    return idx
+class CompleteMatcher(Matcher):
+    def __init__(self, queryset, max_mismatch):
+        super().__init__(queryset)
+
+        if max_mismatch > 0:
+           n = 1
+           while n <= max_mismatch:
+              self.queryset.extend(self._mismatched_queries(queryset, n))
+              n += 1
+
+    def _mismatched_queries(self, queryset, n_mismatch):
+        # This algorithm is terrible unless the number of mismatches is very small
+        assert(n_mismatch in [1, 2, 3])
+        for query in queryset:
+            idx_sets = itertools.combinations(range(len(query)), n_mismatch)
+            for idx_set in idx_sets:
+                # Replace base at each position with a literal "N", to match
+                # ambiguous bases in the reference
+                yield replace_with_n(query, idx_set)
+                # Change to list because strings are immutable
+                qchars = list(query)
+                # Replace the base at each mismatch position with an
+                # ambiguous base specifying all possibilities BUT the one
+                # we see.
+                for idx in idx_set:
+                    qchars[idx] = AMBIGUOUS_BASES_COMPLEMENT[qchars[idx]]
+                    # Expand to all possibilities for mismatching at this
+                    # particular set of positions
+                for query_with_mismatches in deambiguate(qchars):
+                    yield query_with_mismatches
+
+def replace_with_n(seq, idxs):
+    chars = list(seq)
+    for idx in idxs:
+        chars[idx] = "N"
+    return "".join(chars)
+
+AMBIGUOUS_BASES = {
+    "T": "T",
+    "C": "C",
+    "A": "A",
+    "G": "G",
+    "R": "AG",
+    "Y": "TC",
+    "M": "CA",
+    "K": "TG",
+    "S": "CG",
+    "W": "TA",
+    "H": "TCA",
+    "B": "TCG",
+    "V": "CAG",
+    "D": "TAG",
+    "N": "TCAG",
+    }
+
+
+# Ambiguous base codes for all bases EXCEPT the key
+AMBIGUOUS_BASES_COMPLEMENT = {
+    "T": "V",
+    "C": "D",
+    "A": "B",
+    "G": "H",
+    }
+
+
+def deambiguate(seq):
+    nt_choices = [AMBIGUOUS_BASES[x] for x in seq]
+    return ["".join(c) for c in itertools.product(*nt_choices)]
+
+
+COMPLEMENT_BASES = {
+    "T": "A",
+    "C": "G",
+    "A": "T",
+    "G": "C",
+    }
+
+
+def reverse_complement(seq):
+    rc = [COMPLEMENT_BASES[x] for x in seq]
+    rc.reverse()
+    return ''.join(rc)
 
 def main(argv=None):
    p = argparse.ArgumentParser()
@@ -70,10 +151,10 @@ def main(argv=None):
    if args.output_fastq is None:
       args.output_fastq = sys.stdout
 
-   m = ExactMatcher([args.primer])
-   reads = FastqRead.parse(args.input_fastq)
+   queryset = deambiguate(args.primer)
+   m = CompleteMatcher(queryset, 0)
 
-   for read in reads:
+   for read in FastqRead.parse(args.input_fastq):
        idx = m.find_match(read.seq)
        trimmed_read = read.trim(idx)
        args.output_fastq.write(trimmed_read.format_fastq())
