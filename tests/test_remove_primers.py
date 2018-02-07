@@ -80,7 +80,7 @@ class ScriptTests(unittest.TestCase):
             "-i", input_fp,
             "-o", self.output_fp,
             "--log", self.log_fp,
-            "-n", "1",
+            "--num_mismatches", "1",
         ]
         main(args)
 
