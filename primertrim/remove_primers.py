@@ -143,6 +143,9 @@ def main(argv=None):
    p.add_argument(
       "--log", type=argparse.FileType('w'),
       help="Log file to record location of primers detected (default: not written)")
+   p.add_argument(
+      "-n", "--num_mismatches", type=int, default=0,
+      help="Number of mismatches to primer allowed (default: %(default)s)")
    args = p.parse_args(argv)
 
    if args.input_fastq is None:
@@ -152,7 +155,7 @@ def main(argv=None):
       args.output_fastq = sys.stdout
 
    queryset = deambiguate(args.primer)
-   m = CompleteMatcher(queryset, 0)
+   m = CompleteMatcher(queryset, args.num_mismatches)
 
    for read in FastqRead.parse(args.input_fastq):
        idx = m.find_match(read.seq)
