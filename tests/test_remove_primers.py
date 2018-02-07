@@ -50,3 +50,22 @@ class ScriptTests(unittest.TestCase):
         expected_output_fp = data_fp("no_primer_Sub10003.V1.sputum.redo_R1.fastq")
         self.assertEqual(
             read_from(self.output_fp), read_from(expected_output_fp))
+
+    def test_main_script_one_mismatch(self):
+        input_fp = data_fp("Sub10003.V1.sputum.redo_R1.fastq")
+        args = [
+            "GCATCGATGAAGAACGCAGC",
+            "-i", input_fp,
+            "-o", self.output_fp,
+            "--log", self.log_fp,
+            "-n", "1",
+        ]
+        main(args)
+
+        expected_log_fp = data_fp("no_primer_Sub10003.V1.sputum.redo_1mm_R1.log")
+        self.assertEqual(
+            read_from(self.log_fp), read_from(expected_log_fp))
+
+        expected_output_fp = data_fp("no_primer_Sub10003.V1.sputum.redo_1mm_R1.fastq")
+        self.assertEqual(
+            read_from(self.output_fp), read_from(expected_output_fp))
